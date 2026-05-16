@@ -1,4 +1,6 @@
 require('dotenv').config();
+console.log("DB URL Check:", process.env.DATABASE_URL ? "Defined" : "UNDEFINED");
+console.log("JWT Check:", process.env.JWT_SECRET ? "Defined" : "UNDEFINED");
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
