@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String              @id @default(uuid())
+  email            String              @unique
+  passwordHash     String
+  name             String
+  role             Role                @default(USER)
+  createdAt        DateTime            @default(now())
+  favorites        Favorite[]
+  listeningHistory ListeningProgress[]
+  personalBooks    PersonalBook[]
+  bookmarks        Bookmark[]
+  listenLater      ListenLater[]
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model Author {
+  id         String      @id @default(uuid())
+  name       String
+  audiobooks Audiobook[]
+}
+
+model Category {
+  id         String      @id @default(uuid())
+  name       String      @unique
+  audiobooks Audiobook[]
+}
+
+model Audiobook {
+  id               String              @id @default(uuid())
+  title            String
+  description      String
+  coverImageUrl    String?
+  audioFileUrl     String
+  durationSeconds  Int
+  authorId         String
+  categoryId       String
+  createdAt        DateTime            @default(now())
+
+  author           Author              @relation(fields: [authorId], references: [id])
+  category         Category            @relation(fields: [categoryId], references: [id])
+  favorites        Favorite[]
+  listeningHistory ListeningProgress[]
+  bookmarks        Bookmark[]
+  listenLater      ListenLater[]
+}
+
+model Favorite {
+  id          String    @id @default(uuid())
+  userId      String
+  audiobookId String
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  audiobook   Audiobook @relation(fields: [audiobookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, audiobookId])
+}
+
+model ListeningProgress {
+  id              String    @id @default(uuid())
+  userId          String
+  audiobookId     String
+  currentPosition Int
+  isCompleted     Boolean   @default(false)
+  lastListened    DateTime  @default(now())
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  audiobook       Audiobook @relation(fields: [audiobookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, audiobookId])
+}
+
+model PersonalBook {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Bookmark {
+  id          String    @id @default(uuid())
+  userId      String
+  audiobookId String
+  position    Int
+  label       String    @default("")
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  audiobook   Audiobook @relation(fields: [audiobookId], references: [id], onDelete: Cascade)
+}
+
+model ListenLater {
+  id          String    @id @default(uuid())
+  userId      String
+  audiobookId String
+  addedAt     DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  audiobook   Audiobook @relation(fields: [audiobookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, audiobookId])
+}
