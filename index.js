@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
 const prisma = require('./lib/prisma');
 
 const app = express();
@@ -28,7 +27,7 @@ app.use(helmet({
 
 const allowedOrigins = process.env.NODE_ENV === 'production'
   ? (process.env.ALLOWED_ORIGINS?.split(',') || [])
-  : ['process.env.NEXT_PUBLIC_API_URL', 'http://192.168.1.184:3000'];
+  : ['http://localhost:3000', 'http://192.168.1.184:3000'];
 
 app.use(cors({
   origin: (origin, cb) => {
@@ -40,14 +39,6 @@ app.use(cors({
 
 app.use(express.json());
 
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 200 }));
-
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: { message: 'Prea multe încercări. Revino în 15 minute.' },
-});
-
 const audiobookRoutes    = require('./routes/audiobookRoutes');
 const authRoutes         = require('./routes/authRoutes');
 const personalBookRoutes = require('./routes/personalBookRoutes');
@@ -55,7 +46,7 @@ const bookmarkRoutes     = require('./routes/bookmarkRoutes');
 const listenLaterRoutes  = require('./routes/listenLaterRoutes');
 const favoriteRoutes     = require('./routes/favoriteRoutes');
 
-app.use('/api/auth',           authLimiter, authRoutes);
+app.use('/api/auth',           authRoutes);
 app.use('/api/audiobooks',     audiobookRoutes);
 app.use('/api/personal-books', personalBookRoutes);
 app.use('/api/bookmarks',      bookmarkRoutes);
