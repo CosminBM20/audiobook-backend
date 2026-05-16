@@ -6,6 +6,7 @@ const rateLimit = require('express-rate-limit');
 const prisma = require('./lib/prisma');
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5000;
 
 app.use(helmet({
@@ -27,7 +28,7 @@ app.use(helmet({
 
 const allowedOrigins = process.env.NODE_ENV === 'production'
   ? (process.env.ALLOWED_ORIGINS?.split(',') || [])
-  : ['http://localhost:3000', 'http://192.168.1.184:3000'];
+  : ['process.env.NEXT_PUBLIC_API_URL', 'http://192.168.1.184:3000'];
 
 app.use(cors({
   origin: (origin, cb) => {
