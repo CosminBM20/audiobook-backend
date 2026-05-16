@@ -43,12 +43,14 @@ app.use(express.json());
 
 const audiobookRoutes    = require('./routes/audiobookRoutes');
 const authRoutes         = require('./routes/authRoutes');
+const userRoutes         = require('./routes/userRoutes');
 const personalBookRoutes = require('./routes/personalBookRoutes');
 const bookmarkRoutes     = require('./routes/bookmarkRoutes');
 const listenLaterRoutes  = require('./routes/listenLaterRoutes');
 const favoriteRoutes     = require('./routes/favoriteRoutes');
 
 app.use('/api/auth',           authRoutes);
+app.use('/api/user',           userRoutes);
 app.use('/api/audiobooks',     audiobookRoutes);
 app.use('/api/personal-books', personalBookRoutes);
 app.use('/api/bookmarks',      bookmarkRoutes);
