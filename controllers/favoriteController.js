@@ -39,3 +39,26 @@ exports.removeFavorite = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// Single endpoint that adds if absent, removes if present.
+exports.toggleFavorite = async (req, res) => {
+  try {
+    const { audiobookId } = req.body;
+    const userId = req.user.userId;
+    if (!audiobookId) return res.status(400).json({ success: false, message: 'audiobookId is required.' });
+
+    const existing = await prisma.favorite.findUnique({
+      where: { userId_audiobookId: { userId, audiobookId } },
+    });
+
+    if (existing) {
+      await prisma.favorite.delete({ where: { id: existing.id } });
+      res.json({ success: true, isFavorite: false });
+    } else {
+      await prisma.favorite.create({ data: { userId, audiobookId } });
+      res.json({ success: true, isFavorite: true });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

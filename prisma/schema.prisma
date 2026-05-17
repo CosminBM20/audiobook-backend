@@ -29,7 +29,7 @@ enum Role {
 
 model Author {
   id         String      @id @default(uuid())
-  name       String
+  name       String      @unique
   audiobooks Audiobook[]
 }
 
@@ -46,6 +46,7 @@ model Audiobook {
   coverImageUrl    String?
   audioFileUrl     String
   durationSeconds  Int
+  language         String              @default("ro")
   authorId         String
   categoryId       String
   createdAt        DateTime            @default(now())
@@ -56,6 +57,19 @@ model Audiobook {
   listeningHistory ListeningProgress[]
   bookmarks        Bookmark[]
   listenLater      ListenLater[]
+  chapters         Chapter[]
+}
+
+model Chapter {
+  id              String    @id @default(uuid())
+  audiobookId     String
+  title           String
+  order           Int
+  audioFileUrl    String
+  durationSeconds Int
+  createdAt       DateTime  @default(now())
+
+  audiobook       Audiobook @relation(fields: [audiobookId], references: [id], onDelete: Cascade)
 }
 
 model Favorite {
@@ -82,6 +96,7 @@ model ListeningProgress {
   audiobook       Audiobook @relation(fields: [audiobookId], references: [id], onDelete: Cascade)
 
   @@unique([userId, audiobookId])
+  @@index([userId, lastListened])
 }
 
 model PersonalBook {

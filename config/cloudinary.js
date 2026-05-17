@@ -8,9 +8,10 @@ cloudinary.config({
 });
 
 const ALLOWED_TYPES = {
-  coverImage: ['image/jpeg', 'image/png', 'image/webp'],
-  audioFile:  ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav'],
-  pdfFile:    ['application/pdf'],
+  coverImage:  ['image/jpeg', 'image/png', 'image/webp'],
+  audioFile:   ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav'],
+  audioFiles:  ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav'],
+  pdfFile:     ['application/pdf'],
 };
 
 const fileFilter = (req, file, cb) => {
