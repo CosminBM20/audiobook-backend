@@ -1,40 +1,61 @@
-// backend/prisma/seed.js
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// Find any admin user to use as createdById
+async function findOrCreateSeedAdmin() {
+  const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
+  if (admin) return admin.id;
+  // If no admin exists, find any user
+  const user = await prisma.user.findFirst();
+  if (user) return user.id;
+  throw new Error('No users in DB — register at least one user before seeding challenges');
+}
+
+const challengeDefs = [
+  {
+    title: 'Prima carte',
+    titleEn: 'First Book',
+    description: 'Finalizează prima ta carte audio',
+    descriptionEn: 'Complete your first audiobook',
+    type: 'BOOKS_COMPLETED', difficulty: 'EASY', target: 1,
+    period: 'ONE_TIME', xpReward: 50, badgeIcon: '🎯', isActive: true,
+  },
+  {
+    title: 'Cititor pasionat',
+    titleEn: 'Avid Reader',
+    description: 'Finalizează 5 cărți audio',
+    descriptionEn: 'Complete 5 audiobooks',
+    type: 'BOOKS_COMPLETED', difficulty: 'MEDIUM', target: 5,
+    period: 'ONE_TIME', xpReward: 150, badgeIcon: '📚', isActive: true,
+  },
+  {
+    title: 'Maraton audio',
+    titleEn: 'Audio Marathon',
+    description: 'Ascultă 5 ore de conținut audio',
+    descriptionEn: 'Listen to 5 hours of audio content',
+    type: 'LISTENING_TIME', difficulty: 'HARD', target: 300,
+    period: 'ONE_TIME', xpReward: 250, badgeIcon: '⏱️', isActive: true,
+  },
+];
+
 async function main() {
-  console.log('Începem popularea bazei de date...');
-
-  // 1. Creăm câteva categorii
-  const sf = await prisma.category.upsert({
-    where: { name: 'Science Fiction' },
-    update: {},
-    create: { name: 'Science Fiction' },
-  });
-
-  const dezvoltarePersonala = await prisma.category.upsert({
-    where: { name: 'Dezvoltare Personală' },
-    update: {},
-    create: { name: 'Dezvoltare Personală' },
-  });
-
-  // 2. Creăm un autor
-  const autor = await prisma.author.create({
-    data: {
-      name: 'Frank Herbert'
+  const createdById = await findOrCreateSeedAdmin();
+  for (const def of challengeDefs) {
+    const existing = await prisma.challenge.findFirst({ where: { title: def.title } });
+    if (existing) {
+      await prisma.challenge.update({
+        where: { id: existing.id },
+        data: { titleEn: def.titleEn, descriptionEn: def.descriptionEn },
+      });
+      console.log(`Updated: ${def.title}`);
+    } else {
+      await prisma.challenge.create({ data: { ...def, createdById } });
+      console.log(`Created: ${def.title}`);
     }
-  });
-
-  console.log('Datele au fost adăugate cu succes!');
-  console.log('Categorii:', sf, dezvoltarePersonala);
-  console.log('Autor:', autor);
+  }
+  console.log('Done.');
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+  .then(() => prisma.$disconnect())
+  .catch(err => { console.error(err); prisma.$disconnect(); process.exit(1); });

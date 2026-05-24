@@ -39,7 +39,7 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 
 const audiobookRoutes    = require('./routes/audiobookRoutes');
 const authRoutes         = require('./routes/authRoutes');
@@ -48,6 +48,8 @@ const personalBookRoutes = require('./routes/personalBookRoutes');
 const bookmarkRoutes     = require('./routes/bookmarkRoutes');
 const listenLaterRoutes  = require('./routes/listenLaterRoutes');
 const favoriteRoutes     = require('./routes/favoriteRoutes');
+const summaryRoutes      = require('./routes/summaryRoutes');
+const challengeRoutes    = require('./routes/challengeRoutes');
 
 app.use('/api/auth',           authRoutes);
 app.use('/api/user',           userRoutes);
@@ -56,6 +58,8 @@ app.use('/api/personal-books', personalBookRoutes);
 app.use('/api/bookmarks',      bookmarkRoutes);
 app.use('/api/listen-later',   listenLaterRoutes);
 app.use('/api/favorites',      favoriteRoutes);
+app.use('/api/summarize',      summaryRoutes);
+app.use('/api/challenges',     challengeRoutes);
 
 app.get('/api/test', async (req, res) => {
   try {

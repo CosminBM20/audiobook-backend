@@ -2,6 +2,7 @@ const prisma = require('../lib/prisma');
 const stream = require('stream');
 const { cloudinary } = require('../config/cloudinary');
 const mm = require('music-metadata');
+const { onListeningUpdate } = require('../services/challengeProgressService');
 
 /** Accepted language values. Anything outside this set defaults to 'ro'. */
 const VALID_LANGUAGES = new Set(['ro', 'en']);
@@ -111,12 +112,17 @@ exports.saveProgress = async (req, res) => {
 
     const userId = req.user.userId;
 
-    const audiobook = await prisma.audiobook.findUnique({
-      where: { id: audiobookId },
-      select: { durationSeconds: true },
-    });
+    const [audiobook, existing] = await Promise.all([
+      prisma.audiobook.findUnique({
+        where: { id: audiobookId },
+        select: { durationSeconds: true },
+      }),
+      prisma.listeningProgress.findUnique({
+        where: { userId_audiobookId: { userId, audiobookId } },
+        select: { currentPosition: true, isCompleted: true },
+      }),
+    ]);
 
-    // Once completed, never flip back to false (supports re-listening)
     const isCompleted = audiobook ? currentPosition >= audiobook.durationSeconds * 0.97 : false;
 
     const progress = await prisma.listeningProgress.upsert({
@@ -128,7 +134,19 @@ exports.saveProgress = async (req, res) => {
       },
       create: { userId, audiobookId, currentPosition, isCompleted, lastListened: new Date() },
     });
-    res.json({ success: true, progress });
+
+    let newlyCompleted = [];
+    try {
+      newlyCompleted = await onListeningUpdate({
+        userId,
+        previousPosition: existing?.currentPosition ?? 0,
+        newPosition: currentPosition,
+        isCompleted,
+        wasCompleted: existing?.isCompleted ?? false,
+      });
+    } catch {}
+
+    res.json({ success: true, progress, newlyCompleted });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

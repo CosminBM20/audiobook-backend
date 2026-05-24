@@ -15,11 +15,16 @@ model User {
   role             Role                @default(USER)
   preferredVolume  Float               @default(0.7)
   createdAt        DateTime            @default(now())
-  favorites        Favorite[]
-  listeningHistory ListeningProgress[]
-  personalBooks    PersonalBook[]
-  bookmarks        Bookmark[]
-  listenLater      ListenLater[]
+  favorites             Favorite[]
+  listeningHistory      ListeningProgress[]
+  personalBooks         PersonalBook[]
+  bookmarks             Bookmark[]
+  listenLater           ListenLater[]
+  personalBookProgress  PersonalBookProgress[]
+  personalBookBookmarks PersonalBookBookmark[]
+  challenges        UserChallenge[]
+  streak            UserStreak?
+  createdChallenges Challenge[]     @relation("ChallengeCreator")
 }
 
 enum Role {
@@ -104,8 +109,10 @@ model PersonalBook {
   title     String
   content   String
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+  progress  PersonalBookProgress[]
+  bookmarks PersonalBookBookmark[]
 }
 
 model Bookmark {
@@ -130,4 +137,108 @@ model ListenLater {
   audiobook   Audiobook @relation(fields: [audiobookId], references: [id], onDelete: Cascade)
 
   @@unique([userId, audiobookId])
+}
+
+model PersonalBookProgress {
+  id             String    @id @default(uuid())
+  userId         String
+  personalBookId String
+  charOffset     Int       @default(0)
+  totalChars     Int       @default(0)
+  isCompleted    Boolean   @default(false)
+  lastPlayedAt   DateTime?
+  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime  @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  personalBook PersonalBook @relation(fields: [personalBookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, personalBookId])
+}
+
+model PersonalBookBookmark {
+  id             String    @id @default(uuid())
+  userId         String
+  personalBookId String
+  charOffset     Int
+  label          String    @default("")
+  createdAt      DateTime  @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  personalBook PersonalBook @relation(fields: [personalBookId], references: [id], onDelete: Cascade)
+}
+
+enum ChallengeType {
+  LISTENING_TIME
+  BOOKS_COMPLETED
+  PDF_SESSIONS
+  STREAK
+  CATEGORY_EXPLORER
+}
+
+enum ChallengePeriod {
+  ONE_TIME
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum ChallengeDifficulty {
+  EASY
+  MEDIUM
+  HARD
+  LEGENDARY
+}
+
+model Challenge {
+  id             String              @id @default(cuid())
+  title          String
+  description    String
+  titleEn        String              @default("")
+  descriptionEn  String              @default("")
+  type           ChallengeType
+  difficulty     ChallengeDifficulty
+  target         Float
+  period         ChallengePeriod
+  xpReward       Int                 @default(0)
+  isActive       Boolean             @default(false)
+  isArchived     Boolean             @default(false)
+  startsAt       DateTime?
+  endsAt         DateTime?
+  badgeIcon      String              @default("🏆")
+  categoryFilter String?
+  createdById    String
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  createdBy    User            @relation("ChallengeCreator", fields: [createdById], references: [id])
+  userProgress UserChallenge[]
+}
+
+model UserChallenge {
+  id          String    @id @default(cuid())
+  userId      String
+  challengeId String
+  periodKey   String
+  progress    Float     @default(0)
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge   Challenge @relation(fields: [challengeId], references: [id])
+
+  @@unique([userId, challengeId, periodKey])
+}
+
+model UserStreak {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  current          Int       @default(0)
+  longest          Int       @default(0)
+  lastActivity     DateTime?
+  freezesAvailable Int       @default(1)
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

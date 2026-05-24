@@ -67,19 +67,24 @@ exports.deletePersonalBook = async (req, res) => {
 
 exports.getMyPersonalBooks = async (req, res) => {
   try {
-    // Fetch content too — but only to measure its length, not to transmit it.
-    // The frontend uses contentLength to estimate reading time without a
-    // separate round-trip.
+    const userId = req.user.userId;
     const raw = await prisma.personalBook.findMany({
-      where:   { userId: req.user.userId },
-      select:  { id: true, title: true, createdAt: true, content: true },
+      where:   { userId },
+      select:  {
+        id: true, title: true, createdAt: true, content: true,
+        progress: {
+          where:  { userId },
+          select: { charOffset: true, totalChars: true, isCompleted: true, lastPlayedAt: true },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
-    const books = raw.map(({ content, ...b }) => ({
+    const books = raw.map(({ content, progress, ...b }) => ({
       ...b,
-      contentLength: content ? content.length : 0,
+      contentLength: content?.length ?? 0,
+      progress:      progress[0] ?? null,
     }));
-    res.status(200).json({ success: true, data: books });
+    res.json({ success: true, data: books });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Eroare de server.' });
   }
