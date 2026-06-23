@@ -1,5 +1,9 @@
 const prisma = require('../lib/prisma');
 
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  SCREENSHOT: Listing 3.6 — Calculul cheii de perioadă       ║
+// ║  Capturați întreaga funcție getPeriodKey de mai jos          ║
+// ╚══════════════════════════════════════════════════════════════╝
 function getPeriodKey(period) {
   const now = new Date();
   if (period === 'ONE_TIME') return 'all';
@@ -15,6 +19,7 @@ function getPeriodKey(period) {
   const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
   return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }
+// ╚══ SFARSIT Listing 3.6 ══════════════════════════════════════╝
 
 async function updateStreak(userId) {
   const today = new Date().toISOString().split('T')[0];
@@ -54,6 +59,11 @@ async function onListeningUpdate({ userId, previousPosition, newPosition, isComp
   const activeChallenges = await prisma.challenge.findMany({ where: { isActive: true, isArchived: false } });
 
   for (const ch of activeChallenges) {
+    // ╔══════════════════════════════════════════════════════════════╗
+    // ║  SCREENSHOT: Listing 3.5 / Listing 4.4                      ║
+    // ║  Upsert atomic cu cheie de perioadă                          ║
+    // ║  Capturați de la 'const key' până la 'if (uc.isCompleted)'   ║
+    // ╚══════════════════════════════════════════════════════════════╝
     const key = getPeriodKey(ch.period);
     const uc = await prisma.userChallenge.upsert({
       where: { userId_challengeId_periodKey: { userId, challengeId: ch.id, periodKey: key } },
@@ -61,10 +71,18 @@ async function onListeningUpdate({ userId, previousPosition, newPosition, isComp
       update: {},
     });
     if (uc.isCompleted) continue;
+    // ╚══ SFARSIT Listing 3.5 / 4.4 ═══════════════════════════════╝
+
+    // ╔══════════════════════════════════════════════════════════════╗
+    // ║  SCREENSHOT: Listing 4.8 — Harta de incrementuri            ║
+    // ║  (în teză apare ca obiect incrementMap — echivalent logic)   ║
+    // ║  Capturați cele 3 linii de if de mai jos                     ║
+    // ╚══════════════════════════════════════════════════════════════╝
     let increment = 0;
     if (ch.type === 'LISTENING_TIME') increment = deltaMinutes;
     if (ch.type === 'BOOKS_COMPLETED' && justCompleted) increment = 1;
     if (increment <= 0) continue;
+    // ╚══ SFARSIT Listing 4.8 ══════════════════════════════════════╝
     const newProgress = Math.min(uc.progress + increment, ch.target);
     const done = newProgress >= ch.target;
     await prisma.userChallenge.update({

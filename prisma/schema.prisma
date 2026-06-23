@@ -25,6 +25,7 @@ model User {
   challenges        UserChallenge[]
   streak            UserStreak?
   createdChallenges Challenge[]     @relation("ChallengeCreator")
+  reviews           Review[]
 }
 
 enum Role {
@@ -63,6 +64,7 @@ model Audiobook {
   bookmarks        Bookmark[]
   listenLater      ListenLater[]
   chapters         Chapter[]
+  reviews          Review[]
 }
 
 model Chapter {
@@ -241,4 +243,20 @@ model UserStreak {
   freezesAvailable Int       @default(1)
 
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id          String    @id @default(uuid())
+  userId      String
+  audiobookId String
+  rating      Int
+  comment     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  audiobook   Audiobook @relation(fields: [audiobookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, audiobookId])
+  @@index([audiobookId])
 }

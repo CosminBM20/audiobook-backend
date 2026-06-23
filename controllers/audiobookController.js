@@ -34,8 +34,63 @@ const uploadFromBuffer = (buffer, folder, resourceType = 'auto') => {
 
 exports.getAllAudiobooks = async (req, res) => {
   try {
-    const audiobooks = await prisma.audiobook.findMany({ include: { author: true, category: true } });
-    res.status(200).json({ success: true, data: audiobooks });
+    const { search, page, limit } = req.query;
+
+    const hasSearch     = typeof search === 'string' && search.trim().length > 0;
+    const hasPagination = page !== undefined || limit !== undefined;
+
+    // ── Backward-compatible default ──────────────────────────────────────────
+    // No query params → byte-for-byte the original query so the existing
+    // homepage (which calls GET /api/audiobooks with no params) is unchanged.
+    if (!hasSearch && !hasPagination) {
+      const audiobooks = await prisma.audiobook.findMany({ include: { author: true, category: true } });
+      return res.status(200).json({ success: true, data: audiobooks });
+    }
+
+    // ── Optional case-insensitive search across title/description/author/category ─
+    const term = hasSearch ? search.trim() : null;
+    const where = term
+      ? {
+          OR: [
+            { title:       { contains: term, mode: 'insensitive' } },
+            { description: { contains: term, mode: 'insensitive' } },
+            { author:   { is: { name: { contains: term, mode: 'insensitive' } } } },
+            { category: { is: { name: { contains: term, mode: 'insensitive' } } } },
+          ],
+        }
+      : {};
+
+    // ── Search without pagination → filtered list, same envelope as before ───
+    if (!hasPagination) {
+      const audiobooks = await prisma.audiobook.findMany({
+        where,
+        include: { author: true, category: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      return res.status(200).json({ success: true, data: audiobooks });
+    }
+
+    // ── Opt-in pagination ────────────────────────────────────────────────────
+    const pageNum  = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 12));
+    const skip     = (pageNum - 1) * limitNum;
+
+    const [audiobooks, total] = await Promise.all([
+      prisma.audiobook.findMany({
+        where,
+        include: { author: true, category: true },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limitNum,
+      }),
+      prisma.audiobook.count({ where }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: audiobooks,
+      pagination: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: "Eroare de server." });
   }
@@ -104,9 +159,9 @@ exports.updateAudiobook = async (req, res) => {
 
 exports.saveProgress = async (req, res) => {
   try {
-    const { audiobookId, currentPosition } = req.body;
+    const { audiobookId, currentPosition: rawPosition } = req.body;
 
-    if (typeof currentPosition !== 'number' || currentPosition < 0) {
+    if (typeof rawPosition !== 'number' || !Number.isFinite(rawPosition) || rawPosition < 0) {
       return res.status(400).json({ success: false, message: 'currentPosition must be a non-negative number.' });
     }
 
@@ -123,7 +178,18 @@ exports.saveProgress = async (req, res) => {
       }),
     ]);
 
-    const isCompleted = audiobook ? currentPosition >= audiobook.durationSeconds * 0.97 : false;
+    if (!audiobook) {
+      return res.status(404).json({ success: false, message: 'Audiobook not found.' });
+    }
+
+    // Clamp to the book's actual duration — without this, a client could report
+    // an arbitrary position and instantly mark any book "completed", farming
+    // gamification XP/badges with zero real playback.
+    const currentPosition = audiobook.durationSeconds > 0
+      ? Math.min(rawPosition, audiobook.durationSeconds)
+      : rawPosition;
+
+    const isCompleted = audiobook.durationSeconds > 0 && currentPosition >= audiobook.durationSeconds * 0.97;
 
     const progress = await prisma.listeningProgress.upsert({
       where: { userId_audiobookId: { userId, audiobookId } },
@@ -135,6 +201,10 @@ exports.saveProgress = async (req, res) => {
       create: { userId, audiobookId, currentPosition, isCompleted, lastListened: new Date() },
     });
 
+    // ╔══════════════════════════════════════════════════════════════╗
+    // ║  SCREENSHOT: Listing 4.5 — Cuplare slabă prin try-catch     ║
+    // ║  Capturați de la 'let newlyCompleted' până la res.json(...)  ║
+    // ╚══════════════════════════════════════════════════════════════╝
     let newlyCompleted = [];
     try {
       newlyCompleted = await onListeningUpdate({
@@ -147,6 +217,7 @@ exports.saveProgress = async (req, res) => {
     } catch {}
 
     res.json({ success: true, progress, newlyCompleted });
+    // ╚══ SFARSIT Listing 4.5 ══════════════════════════════════════╝
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -280,6 +351,11 @@ exports.createMultiChapterAudiobook = async (req, res) => {
       return res.status(400).json({ success: false, message: "Numărul de fișiere audio nu corespunde cu numărul de capitole." });
     }
 
+    // ╔══════════════════════════════════════════════════════════════╗
+    // ║  SCREENSHOT: Listing 3.4 — Procesare paralelă Promise.all   ║
+    // ║  Capturați de la 'Parse all durations' până la              ║
+    // ║  '...audioFiles.map(f => uploadFromBuffer(...))' inclusiv    ║
+    // ╚══════════════════════════════════════════════════════════════╝
     // Parse all durations in parallel
     const durations = await Promise.all(
       audioFiles.map(f =>
@@ -302,6 +378,7 @@ exports.createMultiChapterAudiobook = async (req, res) => {
       uploadFromBuffer(req.files.coverImage[0].buffer, 'audiobooks/covers', 'image'),
       ...audioFiles.map(f => uploadFromBuffer(f.buffer, 'audiobooks/audio', 'video')),
     ]);
+    // ╚══ SFARSIT Listing 3.4 ══════════════════════════════════════╝
 
     const totalDuration = durations.reduce((sum, d) => sum + d, 0);
 

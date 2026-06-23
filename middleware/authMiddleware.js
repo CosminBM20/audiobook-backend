@@ -1,5 +1,9 @@
 const jwt = require('jsonwebtoken');
 
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  SCREENSHOT: Listing 3.1 — Verificarea tokenului JWT        ║
+// ║  Capturați întreaga funcție protect de mai jos               ║
+// ╚══════════════════════════════════════════════════════════════╝
 const protect = (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
@@ -11,6 +15,7 @@ const protect = (req, res, next) => {
     res.status(401).json({ message: "Token invalid." });
   }
 };
+// ╚══ SFARSIT Listing 3.1 ══════════════════════════════════════╝
 
 const isAdmin = (req, res, next) => {
   if (req.user?.role !== 'ADMIN') return res.status(403).json({ message: "Acces interzis." });
